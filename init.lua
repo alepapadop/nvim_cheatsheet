@@ -2,12 +2,17 @@ local M = {}
 
 M.api = {}
 
+M.api.KEY_MAP_DATA = {}
 M.api.globals = {}
-
-
 M.api.globals['current_win_width'] = 0
 M.api.globals['current_win_height'] = 0
 M.api.globals['win'] = nil
+M.api.globals['number_of_columns'] = 0
+M.api.globals['column_width'] = 0
+
+M.papi = {}
+M.papi.HeaderLines = {}
+M.papi.HeaderLinesMeta = {}
 
 function GetApiKeyBuffer()
     return 'buffer'
@@ -29,16 +34,7 @@ function GetApiKeyHeaderSectionHl()
     return 'HeaderSeactionFormat'
 end
 
-function GetHeaderSectitonHlForegroundColor()
-    return '#56B6C2'
-end
 
-
-function GetHeaderSectitonHlBackgroundColor()
-    return '#56B6C2'
-end
-
-M.api.KEY_MAP_DATA = {}
 
 -- library function do not use it
 function M.api.MapAddTableData(map, key, data)
@@ -83,9 +79,18 @@ end
 -- function for presenting internal vim commands in the user shortcut helper
 -- arguments are same with KeyMap
 function M.api.HelpMap(key, desc, group)
-    local data = { mode = '', key = key, cmd = key, desc = desc }
+    local data = { mode = ' ', key = key, cmd = key, desc = desc }
     M.api.MapAddTableData(M.api.KEY_MAP_DATA, group, data)
 end
+
+
+
+
+
+
+
+
+
 
 function GetWindowSize()
     local w = vim.api.nvim_win_get_width(0)
@@ -120,7 +125,7 @@ function DecideColumnWidthAndNum()
     local min_column_w = 200
     local max_column_w = 400
     local final_col_num = 1
-    
+
     w = factor * w
     h = factor * h
 
@@ -140,21 +145,16 @@ function DecideColumnWidthAndNum()
     end
 
     return final_col_num, w / final_col_num
-    
 end
 
 function CreateSection()
-    
 end
 
 function CreateSectionEntry()
 end
 
-
-
 function RandomHexColorCode()
   local tokens = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9','a','b','c','d','e','f'}
-
   local hex_color = '#'
 
   while (string.len(hex_color) < 7) do
@@ -164,14 +164,123 @@ function RandomHexColorCode()
   return hex_color
 end
 
-
 function CreateSectionHeaderHl(header_name)
     local color = RandomHexColorCode()
-    vim.api.nvim_set_hl(0, header_name, { fg = color, bold = true })
+    -- vim.api.nvim_set_hl(0, header_name, { fg = color, bold = true })
 end
 
-function CreateSectionHeaders()
+function CreateSectionHeadersHl()
+  for key, _ in pairs(M.papi.HeaderLines) do
+    CreateSectionHeaderHl(key)
+  end
 end
+
+function CreateSectionHeaderAndTextMap()
+
+  for key, data_table in pairs(M.api.KEY_MAP_DATA) do
+
+    for _, data in pairs(data_table) do
+
+    local mode_max_len = string.len(data.mode)
+    local key_max_len = string.len(data.key)
+    local desc_max_len = string.len(data.desc)
+
+    if not M.papi.HeaderLines[key] then
+        M.papi.HeaderLines[key] = {}
+    end
+    local section_data = { mode = data.mode, key = data.key, desc = data.desc }
+    table.insert(M.papi.HeaderLines[key], section_data)
+
+    if not M.papi.HeaderLinesMeta[key] then
+      M.papi.HeaderLinesMeta[key] = { mode_max_len = mode_max_len, key_max_len = key_max_len, desc_max_len = desc_max_len }
+    else
+      if mode_max_len > M.papi.HeaderLinesMeta[key].mode_max_len then
+        M.papi.HeaderLinesMeta[key].mode_max_len = mode_max_len
+      end
+      if key_max_len > M.papi.HeaderLinesMeta[key].key_max_len then
+        M.papi.HeaderLinesMeta[key].key_max_len = key_max_len
+      end
+      if desc_max_len > M.papi.HeaderLinesMeta[key].desc_max_len then
+        M.papi.HeaderLinesMeta[key].desc_max_len = desc_max_len
+      end
+    end
+
+    end
+
+  end
+end
+
+local function AlignText(text, width, alignment)
+    local text_width = vim.api.nvim_strwidth(text)
+    local padding = width - text_width
+
+    if alignment == 'center' then
+        local left_pad = math.floor(padding / 2)
+        return string.rep(' ', left_pad) .. text
+    elseif alignment == 'right' then
+        return string.rep(' ', padding) .. text
+    elseif alignment == 'right' then
+      return text .. string.rep(' ', padding)
+    else
+        return text
+    end
+end
+
+function FormatCheatSheetLines()
+
+  local max_width = 50
+    local buf = M.api.globals[GetApiKeyBuffer()]
+
+  for header, data_table in pairs(M.papi.HeaderLines) do
+    for _, data in pairs(data_table) do
+      local header_format = AlignText(header, max_width, 'center')
+      local heading_mode_format = AlignText('Mode', M.papi.HeaderLinesMeta[header].mode_max_len, 'left')
+      local heading_key_format = AlignText('Key', M.papi.HeaderLinesMeta[header].key_max_len, 'left')
+      local heading_desc_format = AlignText('Description', M.papi.HeaderLinesMeta[header].desc_max_len, 'left')
+      local heading = heading_mode_format .. heading_key_format.. heading_desc_format
+  
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { header_format })
+      vim.api.nvim_buf_set_lines(buf, 1, -1, false, { heading })
+  
+    end
+
+
+    -- local info_mode_format = AlignText('Mode', M.papi.HeaderLines[header]., 'left')
+    -- local info_key_format = AlignText('Key', M.papi.HeaderLines[header].key_max_len, 'left')
+    -- local info_desc_format = AlignText('Description', M.papi.HeaderLines[header].desc_max_len, 'left')
+    -- local info = info_mode_format .. info_key_format.. info_desc_format
+
+
+    -- vim.api.nvim_buf_set_lines(buf, 0, -1, false, { info })
+
+  end
+end
+
+M.api.HelpMap('<leader>aa', 'a key', 'Find!')
+M.api.HelpMap('<leader>ab', 'b this is a key with a long line!', 'Find')
+M.api.HelpMap('<leader>ac', 'c this is a key with an even longer line than the previous one!', 'Find')
+M.api.HelpMap('<leader>ad', 'd this a short!', 'Find')
+M.api.HelpMap('<leader>ae', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Find')
+
+M.api.HelpMap('<leader>ba', 'a key', 'Beta Find!')
+M.api.HelpMap('<leader>bb', 'b this is a key with a long line!', 'Beta Find')
+M.api.HelpMap('<leader>bc', 'c this is a key with an even longer line than the previous one!', 'Beta Find')
+M.api.HelpMap('<leader>bd', 'd this a short!', 'Beta Find')
+M.api.HelpMap('<leader>be', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Beta Find')
+
+M.api.HelpMap('<leader>ca', 'a key', 'Ceta Find!')
+M.api.HelpMap('<leader>cb', 'b this is a key with a long line!', 'Ceta Find')
+M.api.HelpMap('<leader>cc', 'c this is a key with an even longer line than the previous one!', 'Beta Find')
+M.api.HelpMap('<leader>cd', 'd this a short!', 'Ceta Find')
+M.api.HelpMap('<leader>ce', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Ceta Find')
+
+M.api.HelpMap('<leader>da', 'a key', 'Deta Find!')
+M.api.HelpMap('<leader>db', 'b this is a key with a long line!', 'Deta Find')
+M.api.HelpMap('<leader>dc', 'c this is a key with an even longer line than the previous one!', 'Deta Find')
+M.api.HelpMap('<leader>dd', 'd this a short!', 'Deta Find')
+M.api.HelpMap('<leader>de', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Deta Find')
+M.api.HelpMap('<leader>df', 'f short', 'Deta Find')
+
 
 local count = 0;
 
@@ -184,15 +293,17 @@ function M.hello_world()
   M.api.globals[GetApiKeyWindow()] = win
 
   local line_content = "  <Leader>ff : Find Files"
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { line_content })
-  CreateSectionHeaderHl(GetApiKeyHeaderSectionHl())
+  -- vim.api.nvim_buf_set_lines(buf, 0, -1, false, { line_content })
 
-  vim.api.nvim_buf_add_highlight(buf, -1, GetApiKeyHeaderSectionHl(), 0, 2, -1)
+  CreateSectionHeaderAndTextMap()
+  CreateSectionHeadersHl()
+  FormatCheatSheetLines()
+
+  -- vim.api.nvim_buf_add_highlight(buf, -1, GetApiKeyHeaderSectionHl(), 0, 2, -1)
 
   vim.keymap.set('n', 'q', '<cmd>hide<cr>', { buffer = buf, silent = true })
 
 end
 
--- Map a command to the function
 
 return M
