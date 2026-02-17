@@ -219,7 +219,7 @@ local function AlignText(text, width, alignment)
         return string.rep(' ', left_pad) .. text
     elseif alignment == 'right' then
         return string.rep(' ', padding) .. text
-    elseif alignment == 'right' then
+    elseif alignment == 'left' then
       return text .. string.rep(' ', padding)
     else
         return text
@@ -229,52 +229,78 @@ end
 function FormatCheatSheetLines()
 
   local max_width = 50
-    local buf = M.api.globals[GetApiKeyBuffer()]
+  local buf = M.api.globals[GetApiKeyBuffer()]
+  local line = 0
 
-  for header, data_table in pairs(M.papi.HeaderLines) do
-    for _, data in pairs(data_table) do
-      local header_format = AlignText(header, max_width, 'center')
-      local heading_mode_format = AlignText('Mode', M.papi.HeaderLinesMeta[header].mode_max_len, 'left')
-      local heading_key_format = AlignText('Key', M.papi.HeaderLinesMeta[header].key_max_len, 'left')
-      local heading_desc_format = AlignText('Description', M.papi.HeaderLinesMeta[header].desc_max_len, 'left')
-      local heading = heading_mode_format .. heading_key_format.. heading_desc_format
-  
-      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { header_format })
-      vim.api.nvim_buf_set_lines(buf, 1, -1, false, { heading })
-  
+  local keys = {}
+  for key, _ in pairs(M.papi.HeaderLines) do
+      table.insert(keys, key)
+  end
+
+  for _, header in ipairs(keys) do
+    local new_block = 0
+    for i, data in ipairs(M.papi.HeaderLines[header]) do
+        local mode_max_len = 0
+        local key_max_len = 0
+        local desc_max_len = 0
+        local align = 'left'
+
+        if new_block == 0 then
+            mode_max_len = M.papi.HeaderLinesMeta[header].mode_max_len
+            key_max_len = M.papi.HeaderLinesMeta[header].key_max_len
+            desc_max_len = M.papi.HeaderLinesMeta[header].desc_max_len
+
+            local header_format = AlignText(header, max_width, 'center')
+            local heading_mode_format = AlignText('Mode', mode_max_len, align)
+            local heading_key_format = AlignText('Key', key_max_len, align)
+            local heading_desc_format = AlignText('Description', desc_max_len, align)
+            local heading = ' ' .. heading_mode_format .. '  ' .. heading_key_format .. '  ' .. heading_desc_format .. ' '
+
+            line = line + 1
+            vim.api.nvim_buf_set_lines(buf, line, line, false, { header_format })
+            line = line + 1
+            vim.api.nvim_buf_set_lines(buf, line, line, false, { heading })
+
+            new_block = new_block + 1
+        end
+
+        local mode = AlignText(data.mode, mode_max_len, align)
+        local key = AlignText(data.key, key_max_len, align)
+        local desc = AlignText(data.desc, desc_max_len, align)
+
+        local entry = ' ' .. mode .. '  ' .. key .. '  ' .. desc .. ' '
+
+        line = line + 1
+        vim.api.nvim_buf_set_lines(buf, line, line, false, { entry })
+
     end
+    line = line + 3
+    vim.api.nvim_buf_set_lines(buf, -1, -1, false, {  "", "" ,"" })
 
 
-    -- local info_mode_format = AlignText('Mode', M.papi.HeaderLines[header]., 'left')
-    -- local info_key_format = AlignText('Key', M.papi.HeaderLines[header].key_max_len, 'left')
-    -- local info_desc_format = AlignText('Description', M.papi.HeaderLines[header].desc_max_len, 'left')
-    -- local info = info_mode_format .. info_key_format.. info_desc_format
-
-
-    -- vim.api.nvim_buf_set_lines(buf, 0, -1, false, { info })
 
   end
 end
 
-M.api.HelpMap('<leader>aa', 'a key', 'Find!')
+M.api.HelpMap('<leader>aa', 'a key', 'Find')
 M.api.HelpMap('<leader>ab', 'b this is a key with a long line!', 'Find')
 M.api.HelpMap('<leader>ac', 'c this is a key with an even longer line than the previous one!', 'Find')
 M.api.HelpMap('<leader>ad', 'd this a short!', 'Find')
 M.api.HelpMap('<leader>ae', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Find')
 
-M.api.HelpMap('<leader>ba', 'a key', 'Beta Find!')
+M.api.HelpMap('<leader>ba', 'a key', 'Beta Find')
 M.api.HelpMap('<leader>bb', 'b this is a key with a long line!', 'Beta Find')
 M.api.HelpMap('<leader>bc', 'c this is a key with an even longer line than the previous one!', 'Beta Find')
 M.api.HelpMap('<leader>bd', 'd this a short!', 'Beta Find')
 M.api.HelpMap('<leader>be', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Beta Find')
 
-M.api.HelpMap('<leader>ca', 'a key', 'Ceta Find!')
+M.api.HelpMap('<leader>ca', 'a key', 'Ceta Find')
 M.api.HelpMap('<leader>cb', 'b this is a key with a long line!', 'Ceta Find')
 M.api.HelpMap('<leader>cc', 'c this is a key with an even longer line than the previous one!', 'Beta Find')
 M.api.HelpMap('<leader>cd', 'd this a short!', 'Ceta Find')
 M.api.HelpMap('<leader>ce', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Ceta Find')
 
-M.api.HelpMap('<leader>da', 'a key', 'Deta Find!')
+M.api.HelpMap('<leader>da', 'a key', 'Deta Find')
 M.api.HelpMap('<leader>db', 'b this is a key with a long line!', 'Deta Find')
 M.api.HelpMap('<leader>dc', 'c this is a key with an even longer line than the previous one!', 'Deta Find')
 M.api.HelpMap('<leader>dd', 'd this a short!', 'Deta Find')
