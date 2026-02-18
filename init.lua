@@ -181,9 +181,9 @@ function CreateSectionHeaderAndTextMap()
 
     for _, data in pairs(data_table) do
 
-    local mode_max_len = string.len(data.mode)
-    local key_max_len = string.len(data.key)
-    local desc_max_len = string.len(data.desc)
+    local mode_max_len = vim.api.nvim_strwidth(data.mode)
+    local key_max_len = vim.api.nvim_strwidth(data.key)
+    local desc_max_len = vim.api.nvim_strwidth(data.desc)
 
     if not M.papi.HeaderLines[key] then
         M.papi.HeaderLines[key] = {}
@@ -239,16 +239,30 @@ function FormatCheatSheetLines()
 
   for _, header in ipairs(keys) do
     local new_block = 0
+    local mode_max_len = 0
+    local key_max_len = 0
+    local desc_max_len = 0
     for i, data in ipairs(M.papi.HeaderLines[header]) do
-        local mode_max_len = 0
-        local key_max_len = 0
-        local desc_max_len = 0
+
         local align = 'left'
 
         if new_block == 0 then
             mode_max_len = M.papi.HeaderLinesMeta[header].mode_max_len
             key_max_len = M.papi.HeaderLinesMeta[header].key_max_len
             desc_max_len = M.papi.HeaderLinesMeta[header].desc_max_len
+
+            local mode_str_len = vim.api.nvim_strwidth('Mode')
+            if mode_str_len > mode_max_len then
+                mode_max_len = mode_str_len;
+            end
+            local key_str_len = vim.api.nvim_strwidth('Key')
+            if key_str_len > key_max_len then
+                key_max_len = key_str_len;
+            end
+            local desc_str_len = vim.api.nvim_strwidth('Description')
+            if desc_str_len > desc_max_len then
+                desc_max_len = desc_str_len;
+            end
 
             local header_format = AlignText(header, max_width, 'center')
             local heading_mode_format = AlignText('Mode', mode_max_len, align)
