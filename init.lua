@@ -92,14 +92,14 @@ end
 
 
 
-function GetWindowSize()
+local function GetWindowSize()
     local w = vim.api.nvim_win_get_width(0)
     local h = vim.api.nvim_win_get_height(0)
 
     return w, h
 end
 
-function CreateFlowtingWindowAndBuffer(w, h)
+local function CreateFlowtingWindowAndBuffer(w, h)
     local buf = vim.api.nvim_create_buf(false, true)
 
     local opts = {
@@ -118,7 +118,7 @@ function CreateFlowtingWindowAndBuffer(w, h)
 end
 
 
-function DecideColumnWidthAndNum()
+local function DecideColumnWidthAndNum()
     local w, h = GetWindowSize()
     local factor = 0.8
     local max_cols = 4
@@ -147,13 +147,8 @@ function DecideColumnWidthAndNum()
     return final_col_num, w / final_col_num
 end
 
-function CreateSection()
-end
 
-function CreateSectionEntry()
-end
-
-function RandomHexColorCode()
+local function RandomHexColorCode()
   local tokens = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9','a','b','c','d','e','f'}
   local hex_color = '#'
 
@@ -164,18 +159,18 @@ function RandomHexColorCode()
   return hex_color
 end
 
-function CreateSectionHeaderHl(header_name)
+local function CreateSectionHeaderHl(header_name)
     local color = RandomHexColorCode()
     -- vim.api.nvim_set_hl(0, header_name, { fg = color, bold = true })
 end
 
-function CreateSectionHeadersHl()
+local function CreateSectionHeadersHl()
   for key, _ in pairs(M.papi.HeaderLines) do
     CreateSectionHeaderHl(key)
   end
 end
 
-function CreateSectionHeaderAndTextMap()
+local function CreateSectionHeaderAndTextMap()
 
   for key, data_table in pairs(M.api.KEY_MAP_DATA) do
 
@@ -225,6 +220,56 @@ local function AlignText(text, width, alignment)
         return text
     end
 end
+
+local function TextToWidthTokens(text, max_width)
+    local lines = {}
+    local start_idx = 1
+    local i = 1
+    local len = #text
+
+    while i <= len do
+        local char_end = i + 1
+        while char_end <= len and text:byte(char_end) >= 128 and text:byte(char_end) <= 191 do
+            char_end = char_end + 1
+        end
+
+        local chunk = text:sub(start_idx, char_end - 1)
+        local current_w = vim.api.nvim_strwidth(chunk)
+
+        if current_w > max_width then
+            if i == start_idx then
+                table.insert(lines, text:sub(start_idx, char_end - 1))
+                start_idx = char_end
+                i = char_end
+            else
+                table.insert(lines, text:sub(start_idx, i - 1))
+                start_idx = i
+            end
+        else
+            i = char_end
+
+            if i > len then
+                table.insert(lines, text:sub(start_idx, len))
+            end
+        end
+    end
+
+    return lines
+end
+
+local function IsBlankString(s)
+    if #s == 0 then return true end
+
+    for i = 1, #s do
+        local b = s:byte(i)
+        if not (b == 32 or (b >= 9 and b <= 13)) then
+            return false
+        end
+    end
+
+    return true
+end
+
 
 function FormatCheatSheetLines()
 
@@ -282,10 +327,28 @@ function FormatCheatSheetLines()
         local key = AlignText(data.key, key_max_len, align)
         local desc = AlignText(data.desc, desc_max_len, align)
 
-        local entry = ' ' .. mode .. '  ' .. key .. '  ' .. desc .. ' '
+        local remaining_width = vim.api.nvim_strwidth(' ' .. mode .. '  ' .. key .. '  ' .. ' ')
 
-        line = line + 1
-        vim.api.nvim_buf_set_lines(buf, line, line, false, { entry })
+        local desc_lines = TextToWidthTokens(desc, remaining_width)
+
+        -- print(vim.inspect(desc_lines))
+        for k, desc_line in ipairs(desc_lines) do
+            local entry = ''
+            local padding_text = ''
+
+            if not IsBlankString(desc_line) then
+
+              if k == 1 then
+                  entry = ' ' .. mode .. '  ' .. key .. '  ' .. desc_line .. ' '
+                  padding_text = string.rep(' ', mode_max_len + key_max_len + 3)
+              else
+                  entry = padding_text .. desc .. ' '
+              end
+              vim.api.nvim_buf_set_lines(buf, line, line, false, { entry })
+
+              line = line + 1
+            end
+        end
 
     end
     line = line + 3
