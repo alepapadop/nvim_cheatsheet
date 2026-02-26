@@ -221,6 +221,19 @@ local function AlignText(text, width, alignment)
     end
 end
 
+local function IsBlankString(s)
+    if #s == 0 then return true end
+
+    for i = 1, #s do
+        local b = s:byte(i)
+        if not (b == 32 or (b >= 9 and b <= 13)) then
+            return false
+        end
+    end
+
+    return true
+end
+
 local function TextToWidthTokens(text, max_width)
     local lines = {}
     local start_idx = 1
@@ -257,18 +270,6 @@ local function TextToWidthTokens(text, max_width)
     return lines
 end
 
-local function IsBlankString(s)
-    if #s == 0 then return true end
-
-    for i = 1, #s do
-        local b = s:byte(i)
-        if not (b == 32 or (b >= 9 and b <= 13)) then
-            return false
-        end
-    end
-
-    return true
-end
 
 
 function FormatCheatSheetLines()
@@ -330,19 +331,22 @@ function FormatCheatSheetLines()
         local remaining_width = vim.api.nvim_strwidth(' ' .. mode .. '  ' .. key .. '  ' .. ' ')
 
         local desc_lines = TextToWidthTokens(desc, remaining_width)
-
-        -- print(vim.inspect(desc_lines))
+--      print(vim.inspect(desc_lines))
+        local padding_text = ''
         for k, desc_line in ipairs(desc_lines) do
             local entry = ''
-            local padding_text = ''
 
             if not IsBlankString(desc_line) then
 
+              line = line + 1
+              if #desc_line and desc_line:sub(1,1) == ' ' then
+                  desc_line = desc_line:sub(2) .. ' '
+              end
               if k == 1 then
                   entry = ' ' .. mode .. '  ' .. key .. '  ' .. desc_line .. ' '
-                  padding_text = string.rep(' ', mode_max_len + key_max_len + 3)
+                  padding_text = string.rep(' ', mode_max_len + key_max_len + 5)
               else
-                  entry = padding_text .. desc .. ' '
+                  entry = padding_text .. desc_line .. ' '
               end
               vim.api.nvim_buf_set_lines(buf, line, line, false, { entry })
 
@@ -354,8 +358,6 @@ function FormatCheatSheetLines()
     line = line + 3
     vim.api.nvim_buf_set_lines(buf, -1, -1, false, {  "", "" ,"" })
 
-
-
   end
 end
 
@@ -365,24 +367,24 @@ M.api.HelpMap('<leader>ac', 'c this is a key with an even longer line than the p
 M.api.HelpMap('<leader>ad', 'd this a short!', 'Find')
 M.api.HelpMap('<leader>ae', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Find')
 
-M.api.HelpMap('<leader>ba', 'a key', 'Beta Find')
-M.api.HelpMap('<leader>bb', 'b this is a key with a long line!', 'Beta Find')
-M.api.HelpMap('<leader>bc', 'c this is a key with an even longer line than the previous one!', 'Beta Find')
-M.api.HelpMap('<leader>bd', 'd this a short!', 'Beta Find')
-M.api.HelpMap('<leader>be', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Beta Find')
-
-M.api.HelpMap('<leader>ca', 'a key', 'Ceta Find')
-M.api.HelpMap('<leader>cb', 'b this is a key with a long line!', 'Ceta Find')
-M.api.HelpMap('<leader>cc', 'c this is a key with an even longer line than the previous one!', 'Beta Find')
-M.api.HelpMap('<leader>cd', 'd this a short!', 'Ceta Find')
-M.api.HelpMap('<leader>ce', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Ceta Find')
-
-M.api.HelpMap('<leader>da', 'a key', 'Deta Find')
-M.api.HelpMap('<leader>db', 'b this is a key with a long line!', 'Deta Find')
-M.api.HelpMap('<leader>dc', 'c this is a key with an even longer line than the previous one!', 'Deta Find')
-M.api.HelpMap('<leader>dd', 'd this a short!', 'Deta Find')
-M.api.HelpMap('<leader>de', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Deta Find')
-M.api.HelpMap('<leader>df', 'f short', 'Deta Find')
+-- M.api.HelpMap('<leader>ba', 'a key', 'Beta Find')
+-- M.api.HelpMap('<leader>bb', 'b this is a key with a long line!', 'Beta Find')
+-- M.api.HelpMap('<leader>bc', 'c this is a key with an even longer line than the previous one!', 'Beta Find')
+-- M.api.HelpMap('<leader>bd', 'd this a short!', 'Beta Find')
+-- M.api.HelpMap('<leader>be', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Beta Find')
+-- 
+-- M.api.HelpMap('<leader>ca', 'a key', 'Ceta Find')
+-- M.api.HelpMap('<leader>cb', 'b this is a key with a long line!', 'Ceta Find')
+-- M.api.HelpMap('<leader>cc', 'c this is a key with an even longer line than the previous one!', 'Beta Find')
+-- M.api.HelpMap('<leader>cd', 'd this a short!', 'Ceta Find')
+-- M.api.HelpMap('<leader>ce', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Ceta Find')
+-- 
+-- M.api.HelpMap('<leader>da', 'a key', 'Deta Find')
+-- M.api.HelpMap('<leader>db', 'b this is a key with a long line!', 'Deta Find')
+-- M.api.HelpMap('<leader>dc', 'c this is a key with an even longer line than the previous one!', 'Deta Find')
+-- M.api.HelpMap('<leader>dd', 'd this a short!', 'Deta Find')
+-- M.api.HelpMap('<leader>de', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Deta Find')
+-- M.api.HelpMap('<leader>df', 'f short', 'Deta Find')
 
 
 local count = 0;
