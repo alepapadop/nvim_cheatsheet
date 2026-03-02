@@ -13,6 +13,7 @@ M.api.globals['column_width'] = 0
 M.papi = {}
 M.papi.HeaderLines = {}
 M.papi.HeaderLinesMeta = {}
+M.papi.SectionBlockRange = {}
 
 function GetApiKeyBuffer()
     return 'buffer'
@@ -34,7 +35,14 @@ function GetApiKeyHeaderSectionHl()
     return 'HeaderSeactionFormat'
 end
 
-
+-- library function do not use it
+function M.papi.SectionBlockRangeStart(header, start_line, end_line)
+    if not M.papi.SectionBlockRange[header] then
+        M.papi.SectionBlockRange[header] = {}
+    end
+    local data = {start_line = start_line, end_line = end_line}
+    M.papi.SectionBlockRange[header] = data
+end
 
 -- library function do not use it
 function M.api.MapAddTableData(map, key, data)
@@ -288,7 +296,9 @@ function FormatCheatSheetLines()
     local mode_max_len = 0
     local key_max_len = 0
     local desc_max_len = 0
-    for i, data in ipairs(M.papi.HeaderLines[header]) do
+    local start_line = 0;
+    local end_line = 0;
+    for _, data in ipairs(M.papi.HeaderLines[header]) do
 
         local align = 'left'
 
@@ -317,6 +327,7 @@ function FormatCheatSheetLines()
             local heading = ' ' .. heading_mode_format .. '  ' .. heading_key_format .. '  ' .. heading_desc_format .. ' '
 
             line = line + 1
+            start_line = line
             vim.api.nvim_buf_set_lines(buf, line, line, false, { header_format })
             line = line + 1
             vim.api.nvim_buf_set_lines(buf, line, line, false, { heading })
@@ -356,9 +367,19 @@ function FormatCheatSheetLines()
 
     end
     line = line + 3
+    end_line = line
     vim.api.nvim_buf_set_lines(buf, -1, -1, false, {  "", "" ,"" })
+    M.papi.SectionBlockRangeStart(header, start_line, end_line)
 
   end
+end
+
+
+local function CutBufferLines(line_start, line_end)
+
+end
+
+local function AppendBufferLines(start_col, lines)
 end
 
 M.api.HelpMap('<leader>aa', 'a key', 'Find')
