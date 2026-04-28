@@ -13,7 +13,10 @@ M.api.globals['column_width'] = 0
 M.papi = {}
 M.papi.HeaderLines = {}
 M.papi.HeaderLinesMeta = {}
-M.papi.SectionBlockRange = {}
+M.papi.SectionBlockRange = {} -- header -> {start_line, end_line}
+M.papi.SectionToColumn = {}   -- header -> {column}
+M.papi.MaxBufferLines = 0
+M.papi.MaxBufferCols = 0
 
 function GetApiKeyBuffer()
     return 'buffer'
@@ -21,6 +24,14 @@ end
 
 function GetApiKeyWindow()
     return 'window'
+end
+
+function GetApiKeyBufferHelper()
+    return 'buffer_helper'
+end
+
+function GetApiKeyWindowHelper()
+    return 'window_helper'
 end
 
 function GetApiKeyCurrentWindowWidth()
@@ -36,7 +47,7 @@ function GetApiKeyHeaderSectionHl()
 end
 
 -- library function do not use it
-function M.papi.SectionBlockRangeStart(header, start_line, end_line)
+function M.papi.SectionBlockRangeStore(header, start_line, end_line)
     if not M.papi.SectionBlockRange[header] then
         M.papi.SectionBlockRange[header] = {}
     end
@@ -45,12 +56,19 @@ function M.papi.SectionBlockRangeStart(header, start_line, end_line)
 end
 
 -- library function do not use it
-function M.api.MapAddTableData(map, key, data)
+function M.api.MapAddTableDataStore(map, key, data)
     local clean_key = key:gsub('<CR>', '')
     if not map[clean_key] then
         map[clean_key] = {}
     end
     table.insert(map[clean_key], data)
+end
+
+function M.papi.SectionToColumnStore(header, column)
+    if M.papi.SectionToColumn[header] then
+        return
+    end
+    M.papi.SectionToColumn[header] = column
 end
 
 -- function that creates a keymap and stores extra data for the user shortcut helper (HYDRA)
@@ -65,7 +83,7 @@ function M.api.KeyMap(mode, key, cmd, desc, group, remap)
     end
     vim.M.api.nvim_set_keymap(mode, key, cmd, { noremap = remap, silent = true, desc = desc } )
     local data = { mode = mode, key = key, cmd = cmd, desc = desc }
-    M.api.MapAddTableData(M.api.KEY_MAP_DATA, group, data)
+    M.api.MapAddTableDataStore(M.api.KEY_MAP_DATA, group, data)
 end
 
 -- function that creates a keymap for a specific buffer and stores extra data for the user shortcut helper (HYDRA)
@@ -81,14 +99,14 @@ function M.api.KeyMapBuffer(buffer, mode, key, cmd, desc, group, remap)
     end
     vim.M.api.nvim_buf_set_keymap(buffer, mode, key, cmd, { noremap = remap, silent = true, desc = desc } )
     local data = { mode = mode, key = key, cmd = cmd, desc = desc }
-    M.api.MapAddTableData(M.api.KEY_MAP_DATA, group, data)
+    M.api.MapAddTableDataStore(M.api.KEY_MAP_DATA, group, data)
 end
 
 -- function for presenting internal vim commands in the user shortcut helper
 -- arguments are same with KeyMap
 function M.api.HelpMap(key, desc, group)
     local data = { mode = ' ', key = key, cmd = key, desc = desc }
-    M.api.MapAddTableData(M.api.KEY_MAP_DATA, group, data)
+    M.api.MapAddTableDataStore(M.api.KEY_MAP_DATA, group, data)
 end
 
 
@@ -283,7 +301,7 @@ end
 function FormatCheatSheetLines()
 
   local max_width = 50
-  local buf = M.api.globals[GetApiKeyBuffer()]
+  local buf = M.api.globals[GetApiKeyBufferHelper()]
   local line = 0
 
   local keys = {}
@@ -361,7 +379,8 @@ function FormatCheatSheetLines()
               end
               vim.api.nvim_buf_set_lines(buf, line, line, false, { entry })
 
-              line = line + 1
+              --line = line + 1
+              --print(line, entry)
             end
         end
 
@@ -369,17 +388,100 @@ function FormatCheatSheetLines()
     line = line + 3
     end_line = line
     vim.api.nvim_buf_set_lines(buf, -1, -1, false, {  "", "" ,"" })
-    M.papi.SectionBlockRangeStart(header, start_line, end_line)
+    --print(header, start_line, end_line)
+    M.papi.SectionBlockRangeStore(header, start_line, end_line)
 
   end
 end
 
+local function ShortBufferLinesPerSize()
+    -- add the first three doc to each column
+    -- append the next to the smallest section and
+    -- continue this way
 
-local function CutBufferLines(line_start, line_end)
+    local column = 0;
+    local init = 1
+    local max_cols = 3
+    local col_to_size = {}
+    for header, data in pairs(M.papi.SectionBlockRange) do
+        local range = data.end_line - data.start_line
+        if init then
+            M.papi.SectionToColumnStore(header, column)
+            print('|%s|%d|', header, column)
+
+            col_to_size[column] = range
+            column = column + 1
+            if column == max_cols then
+                init = 0;
+                column = 0
+            end
+        else
+            local tmp_min_size = math.huge;
+            for col, size in pairs(col_to_size) do
+                if size < tmp_min_size then
+                    tmp_min_size = size
+                    column = col
+                end
+            end
+
+            print('|%s|%d|||', header, column)
+            M.papi.SectionToColumnStore(header, column)
+            col_to_size[column] = col_to_size[column] + range
+        end
+    end
+    local tmp_max_size = 0
+    for col, size in pairs(col_to_size) do
+        if size > tmp_max_size then
+            tmp_max_size = size
+        end
+    end
+    M.papi.MaxBufferLines = tmp_max_size
+    M.papi.MaxBufferCols = max_cols * 30 + max_cols
 
 end
 
-local function AppendBufferLines(start_col, lines)
+local function WriteCheatSheetLines()
+
+    local buf = M.api.globals[GetApiKeyBuffer()]
+    local buf_helper = M.api.globals[GetApiKeyBufferHelper()]
+    local col_size = 30
+
+    local empty_lines = {}
+    for i = 1, M.papi.MaxBufferLines + 10 do
+        table.insert(empty_lines, string.rep(" ", M.papi.MaxBufferCols + 100))
+    end
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, empty_lines)
+
+    local col_to_line_max = {}
+    col_to_line_max[0] = 0
+    col_to_line_max[1] = 0
+    col_to_line_max[2] = 0
+
+    for header, line_pair in pairs(M.papi.SectionBlockRange) do
+        local col = M.papi.SectionToColumn[header]
+        local start_col = col * col_size
+        local end_col = (col +  1) * col_size
+        local lines = vim.api.nvim_buf_get_lines(buf_helper, line_pair.start_line, line_pair.end_line, false)
+
+        local range = line_pair.end_line - line_pair.start_line
+        local line_start = col_to_line_max[col] + 1
+        local line_end = line_start + range
+
+        print(lines)
+        for _, line in ipairs(lines) do
+            print(line)
+        end
+        print('|%d|', col)
+        print('|%d|%d|%d|%d', line_pair.start_line, start_col, line_pair.end_line, end_col)
+        print('|%d|%d|%d|%d', line_start, start_col, line_end, end_col)
+
+        local line_cnt = line_start
+        for _, line in ipairs(lines) do
+            vim.api.nvim_buf_set_text(buf, line_cnt, start_col, line_cnt, end_col, {line})
+            line_cnt = line_cnt + 1
+        end
+        col_to_line_max[col] = col_to_line_max[col] + range
+    end
 end
 
 M.api.HelpMap('<leader>aa', 'a key', 'Find')
@@ -388,17 +490,17 @@ M.api.HelpMap('<leader>ac', 'c this is a key with an even longer line than the p
 M.api.HelpMap('<leader>ad', 'd this a short!', 'Find')
 M.api.HelpMap('<leader>ae', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Find')
 
--- M.api.HelpMap('<leader>ba', 'a key', 'Beta Find')
--- M.api.HelpMap('<leader>bb', 'b this is a key with a long line!', 'Beta Find')
--- M.api.HelpMap('<leader>bc', 'c this is a key with an even longer line than the previous one!', 'Beta Find')
--- M.api.HelpMap('<leader>bd', 'd this a short!', 'Beta Find')
--- M.api.HelpMap('<leader>be', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Beta Find')
--- 
--- M.api.HelpMap('<leader>ca', 'a key', 'Ceta Find')
--- M.api.HelpMap('<leader>cb', 'b this is a key with a long line!', 'Ceta Find')
--- M.api.HelpMap('<leader>cc', 'c this is a key with an even longer line than the previous one!', 'Beta Find')
--- M.api.HelpMap('<leader>cd', 'd this a short!', 'Ceta Find')
--- M.api.HelpMap('<leader>ce', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Ceta Find')
+M.api.HelpMap('<leader>ba', 'a key', 'Beta Find')
+M.api.HelpMap('<leader>bb', 'b this is a key with a long line!', 'Beta Find')
+M.api.HelpMap('<leader>bc', 'c this is a key with an even longer line than the previous one!', 'Beta Find')
+M.api.HelpMap('<leader>bd', 'd this a short!', 'Beta Find')
+M.api.HelpMap('<leader>be', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Beta Find')
+
+M.api.HelpMap('<leader>ca', 'a key', 'Ceta Find')
+M.api.HelpMap('<leader>cb', 'b this is a key with a long line!', 'Ceta Find')
+M.api.HelpMap('<leader>cc', 'c this is a key with an even longer line than the previous one!', 'Beta Find')
+M.api.HelpMap('<leader>cd', 'd this a short!', 'Ceta Find')
+M.api.HelpMap('<leader>ce', 'e this is a key with an even longer line than the previous one an it is really a very long line and will wrap many times!', 'Ceta Find')
 -- 
 -- M.api.HelpMap('<leader>da', 'a key', 'Deta Find')
 -- M.api.HelpMap('<leader>db', 'b this is a key with a long line!', 'Deta Find')
@@ -411,23 +513,31 @@ M.api.HelpMap('<leader>ae', 'e this is a key with an even longer line than the p
 local count = 0;
 
 function M.hello_world()
-  count = count + 1
-  print("Hello, World!", count)
-  local win, buf = CreateFlowtingWindowAndBuffer(50,50)
+    count = count + 1
+    print("Hello, World!", count)
+    local helper_win, helper_buf = CreateFlowtingWindowAndBuffer(50,50)
+    local win, buf = CreateFlowtingWindowAndBuffer(100,100)
 
-  M.api.globals[GetApiKeyBuffer()] = buf
-  M.api.globals[GetApiKeyWindow()] = win
+    M.api.globals[GetApiKeyBufferHelper()] = helper_buf
+    M.api.globals[GetApiKeyWindowHelper()] = helper_win
 
-  local line_content = "  <Leader>ff : Find Files"
-  -- vim.api.nvim_buf_set_lines(buf, 0, -1, false, { line_content })
+    M.api.globals[GetApiKeyBuffer()] = buf
+    M.api.globals[GetApiKeyWindow()] = win
 
-  CreateSectionHeaderAndTextMap()
-  CreateSectionHeadersHl()
-  FormatCheatSheetLines()
 
-  -- vim.api.nvim_buf_add_highlight(buf, -1, GetApiKeyHeaderSectionHl(), 0, 2, -1)
 
-  vim.keymap.set('n', 'q', '<cmd>hide<cr>', { buffer = buf, silent = true })
+    local line_content = "  <Leader>ff : Find Files"
+    -- vim.api.nvim_buf_set_lines(buf, 0, -1, false, { line_content })
+
+    CreateSectionHeaderAndTextMap()
+    CreateSectionHeadersHl()
+    FormatCheatSheetLines()
+    ShortBufferLinesPerSize()
+    WriteCheatSheetLines()
+
+    -- vim.api.nvim_buf_add_highlight(buf, -1, GetApiKeyHeaderSectionHl(), 0, 2, -1)
+
+    vim.keymap.set('n', 'q', '<cmd>hide<cr>', { buffer = buf, silent = true })
 
 end
 
