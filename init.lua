@@ -436,7 +436,7 @@ local function ShortBufferLinesPerSize()
         end
     end
     M.papi.MaxBufferLines = tmp_max_size
-    M.papi.MaxBufferCols = max_cols * 30 + max_cols
+    M.papi.MaxBufferCols = max_cols * 50 + max_cols
 
 end
 
@@ -444,7 +444,7 @@ local function WriteCheatSheetLines()
 
     local buf = M.api.globals[GetApiKeyBuffer()]
     local buf_helper = M.api.globals[GetApiKeyBufferHelper()]
-    local col_size = 30
+    local col_size = 50
 
     local empty_lines = {}
     for i = 1, M.papi.MaxBufferLines + 10 do
@@ -471,6 +471,7 @@ local function WriteCheatSheetLines()
         for _, line in ipairs(lines) do
             print(line)
         end
+        print('||', M.papi.MaxBufferCols)
         print('|%d|', col)
         print('|%d|%d|%d|%d', line_pair.start_line, start_col, line_pair.end_line, end_col)
         print('|%d|%d|%d|%d', line_start, start_col, line_end, end_col)
